@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Container, Paper, Box, Typography, TextField, Button, Grid, Alert, CircularProgress, Divider } from '@mui/material';
+import { Container, Paper, Box, Typography, TextField, Button, Grid, Alert, CircularProgress, Divider, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
@@ -13,6 +13,7 @@ export default function Profile() {
     email: '',
     phone: '',
     address: '',
+    gender: '',
     doctorDetails: {
       qualifications: '',
       licenseNumber: '',
@@ -28,6 +29,7 @@ export default function Profile() {
         email: user.email || '',
         phone: user.phone || '',
         address: user.address || '',
+        gender: user.gender || '',
         doctorDetails: user.doctorDetails || {
           qualifications: '',
           licenseNumber: '',
@@ -60,6 +62,7 @@ export default function Profile() {
         email: formData.email,
         phone: formData.phone,
         address: formData.address,
+        gender: formData.gender,
       };
       if (user?.role === 'doctor') {
         payload.doctorDetails = formData.doctorDetails;
@@ -105,6 +108,24 @@ export default function Profile() {
               <Grid item xs={12}>
                 <TextField fullWidth label="Address" name="address" value={formData.address} onChange={handleChange} />
               </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel id="gender-label">Gender</InputLabel>
+                  <Select
+                    key={formData.gender}
+                    labelId="gender-label"
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    label="Gender"
+                  >
+                    <MenuItem value="male">Male</MenuItem>
+                    <MenuItem value="female">Female</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
             </Grid>
 
             {user?.role === 'doctor' && (

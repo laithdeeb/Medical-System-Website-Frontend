@@ -24,12 +24,15 @@ import {
   Select,
   FormControl,
   InputLabel,
+  TextField,
 } from '@mui/material';
 import {
   CheckCircle,
   Cancel,
   MedicalServices,
   Visibility,
+  Add,
+  Delete,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -44,6 +47,12 @@ export default function DoctorAppointments() {
   const [actionLoading, setActionLoading] = useState(false);
   const [statusDialog, setStatusDialog] = useState({ open: false, id: null, newStatus: '' });
   const [viewDialog, setViewDialog] = useState({ open: false, appointment: null });
+
+  // ✅ State لحوار إكمال الموعد مع وصفة
+  const [completeDialog, setCompleteDialog] = useState({ open: false, appointment: null });
+  const [medications, setMedications] = useState([{ name: '', dosage: '', frequency: '', duration: '', notes: '' }]);
+  const [instructions, setInstructions] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchAppointments();
@@ -65,13 +74,10 @@ export default function DoctorAppointments() {
     const now = new Date();
     let filteredList = [...appointments];
     if (tabValue === 0) {
-      // قادمة: التاريخ أكبر من الآن أو اليوم مع وقت مستقبلي (تبسيطاً: التاريخ >= اليوم)
       filteredList = filteredList.filter(app => new Date(app.date) >= now);
     } else {
-      // سابقة
       filteredList = filteredList.filter(app => new Date(app.date) < now);
     }
-    // ترتيب تصاعدي للقادمة، تنازلي للسابقة
     filteredList.sort((a, b) => tabValue === 0 ? new Date(a.date) - new Date(b.date) : new Date(b.date) - new Date(a.date));
     setFiltered(filteredList);
   }, [appointments, tabValue]);
@@ -79,10 +85,6 @@ export default function DoctorAppointments() {
   const updateAppointmentStatus = async (id, newStatus) => {
     setActionLoading(true);
     try {
-      // استخدم API مخصص لتحديث الحالة (سنضيفه في backend إذا لم يكن موجوداً)
-      // حالياً نستخدم PUT /api/appointments/:id/cancel للإلغاء، لكن للتأكيد/الإكمال نحتاج endpoint جديد.
-      // مؤقتاً سنضيف في backend (سأكتب التعديل لاحقاً) أو نستخدم نفس المسار مع body.
-      // للتبسيط، سنفترض أن لدينا PUT /api/appointments/:id/status
       await api.put(`/appointments/${id}/status`, { status: newStatus });
       setAppointments(prev =>
         prev.map(app => app._id === id ? { ...app, status: newStatus } : app)
@@ -103,8 +105,54 @@ export default function DoctorAppointments() {
     setStatusDialog({ open: true, id, newStatus: 'confirmed' });
   };
 
-  const handleComplete = (id) => {
-    setStatusDialog({ open: true, id, newStatus: 'completed' });
+  // ❌ تم تعديل هذه الدالة: لم تعد تستخدم handleComplete مباشرة، بل تفتح حوار الوصفة
+  // ✅ الدالة الجديدة handleOpenCompleteDialog
+  const handleOpenCompleteDialog = (appointment) => {
+    setMedications([{ name: '', dosage: '', frequency: '', duration: '', notes: '' }]);
+    setInstructions('');
+    setCompleteDialog({ open: true, appointment });
+  };
+
+  // ✅ إضافة دواء جديد
+  const addMedication = () => {
+    setMedications([...medications, { name: '', dosage: '', frequency: '', duration: '', notes: '' }]);
+  };
+
+  // ✅ حذف دواء
+  const removeMedication = (index) => {
+    if (medications.length === 1) return;
+    const updated = [...medications];
+    updated.splice(index, 1);
+    setMedications(updated);
+  };
+
+  // ✅ تحديث حقل دواء
+  const updateMedication = (index, field, value) => {
+    const updated = [...medications];
+    updated[index][field] = value;
+    setMedications(updated);
+  };
+
+  // ✅ إرسال الإكمال مع الوصفة
+  const handleCompleteSubmit = async () => {
+    const isValid = medications.every(med => med.name && med.dosage && med.frequency && med.duration);
+    if (!isValid) {
+      alert('Please fill all medication fields');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.post(`/appointments/${completeDialog.appointment._id}/complete`, {
+        medications,
+        instructions,
+      });
+      setCompleteDialog({ open: false, appointment: null });
+      fetchAppointments(); // تحديث القائمة
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to complete appointment');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getStatusColor = (status) => {
@@ -206,8 +254,9 @@ export default function DoctorAppointments() {
                             )}
                             {app.status === 'confirmed' && (
                               <>
+                                {/* ✅ تعديل هنا: استخدام handleOpenCompleteDialog بدلاً من handleComplete */}
                                 <Tooltip title="Mark Completed">
-                                  <IconButton color="primary" onClick={() => handleComplete(app._id)}>
+                                  <IconButton color="primary" onClick={() => handleOpenCompleteDialog(app)}>
                                     <MedicalServices />
                                   </IconButton>
                                 </Tooltip>
@@ -273,6 +322,59 @@ export default function DoctorAppointments() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewDialog({ open: false, appointment: null })}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ✅ حوار إكمال الموعد مع وصفة طبية (جديد) */}
+      <Dialog open={completeDialog.open} onClose={() => setCompleteDialog({ open: false, appointment: null })} maxWidth="md" fullWidth>
+        <DialogTitle>Complete Appointment with Prescription</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Patient: <strong>{completeDialog.appointment?.patient?.fullName}</strong>
+          </Typography>
+          <Typography variant="subtitle1" fontWeight={600} gutterBottom>Medications</Typography>
+          {medications.map((med, index) => (
+            <Card key={index} variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#f9fafb' }}>
+              <Grid container spacing={1}>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth label="Medication Name" value={med.name} onChange={(e) => updateMedication(index, 'name', e.target.value)} size="small" required />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField fullWidth label="Dosage" value={med.dosage} onChange={(e) => updateMedication(index, 'dosage', e.target.value)} size="small" required />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField fullWidth label="Frequency" value={med.frequency} onChange={(e) => updateMedication(index, 'frequency', e.target.value)} size="small" required />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField fullWidth label="Duration" value={med.duration} onChange={(e) => updateMedication(index, 'duration', e.target.value)} size="small" required />
+                </Grid>
+                <Grid item xs={12} sm={9}>
+                  <TextField fullWidth label="Notes (optional)" value={med.notes} onChange={(e) => updateMedication(index, 'notes', e.target.value)} size="small" />
+                </Grid>
+                <Grid item xs={12} sm={3} display="flex" alignItems="center">
+                  <Button fullWidth variant="outlined" color="error" startIcon={<Delete />} onClick={() => removeMedication(index)} disabled={medications.length === 1}>
+                    Remove
+                  </Button>
+                </Grid>
+              </Grid>
+            </Card>
+          ))}
+          <Button variant="outlined" startIcon={<Add />} onClick={addMedication} sx={{ mb: 2 }}>Add Medication</Button>
+          <TextField
+            fullWidth
+            label="Additional Instructions (e.g., diet, rest, follow-up)"
+            multiline
+            rows={3}
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCompleteDialog({ open: false, appointment: null })}>Cancel</Button>
+          <Button onClick={handleCompleteSubmit} variant="contained" disabled={submitting}>
+            {submitting ? <CircularProgress size={24} /> : 'Complete & Save Prescription'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

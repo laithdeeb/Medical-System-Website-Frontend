@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 export default function MyAppointments() {
   const { user } = useAuth();
@@ -27,6 +28,7 @@ export default function MyAppointments() {
   const [error, setError] = useState('');
   const [cancelDialog, setCancelDialog] = useState({ open: false, id: null });
   const [actionLoading, setActionLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchAppointments();
@@ -145,22 +147,29 @@ export default function MyAppointments() {
                           )}
                         </Box>
                         <Box textAlign="right">
-                          <Chip
-                            label={getStatusText(app.status)}
-                            color={getStatusColor(app.status)}
-                            sx={{ mb: 1 }}
-                          />
-                          {app.status === 'pending' || app.status === 'confirmed' ? (
-                            <Button
-                              variant="outlined"
-                              color="error"
-                              size="small"
-                              onClick={() => setCancelDialog({ open: true, id: app._id })}
-                              sx={{ mt: 1, display: 'block' }}
-                            >
-                              Cancel
-                            </Button>
-                          ) : null}
+                          <Chip label={getStatusText(app.status)} color={getStatusColor(app.status)} sx={{ mb: 1 }} />
+                          {(app.status === 'pending' || app.status === 'confirmed') && (
+                            <>
+                              <Button
+                                variant="outlined"
+                                color="primary"
+                                size="small"
+                                onClick={() => navigate(`/reschedule/${app._id}`)}
+                                sx={{ mt: 1, display: 'block', mr: 1 }}
+                              >
+                                Reschedule
+                              </Button>
+                              <Button
+                                variant="outlined"
+                                color="error"
+                                size="small"
+                                onClick={() => setCancelDialog({ open: true, id: app._id })}
+                                sx={{ mt: 1, display: 'block' }}
+                              >
+                                Cancel
+                              </Button>
+                            </>
+                          )}
                         </Box>
                       </Box>
                     </CardContent>

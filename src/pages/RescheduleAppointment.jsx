@@ -5,7 +5,6 @@ import {
   Container,
   Paper,
   Typography,
-  TextField,
   Button,
   MenuItem,
   Grid,
@@ -22,73 +21,68 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function BookAppointment() {
-  const { doctorId } = useParams();
+export default function RescheduleAppointment() {
+  const { appointmentId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (user && user.role !== 'patient') {
-      navigate('/');
-    }
-  }, [user, navigate]);
-
+  const [appointment, setAppointment] = useState(null);
   const [doctor, setDoctor] = useState(null);
   const [availability, setAvailability] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [timeSlots, setTimeSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState('');
-  const [reason, setReason] = useState('routine');
-  const [type, setType] = useState('clinic');
-  const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [fetchingSlots, setFetchingSlots] = useState(false);
 
+  // جلب بيانات الموعد الحالي
   useEffect(() => {
-    const fetchDoctorAndAvailability = async () => {
+    const fetchAppointment = async () => {
       try {
-        const { data } = await api.get(`/users/doctors/${doctorId}`);
-        setDoctor(data.doctor);
-        setAvailability(data.availability);
-        if (!data.availability) {
-          setError('This doctor has not set their availability yet.');
-        }
+        // ملاحظة: نحتاج API لجلب موعد معين. يمكنك إضافته أو استدعاء my-appointments وتصفية
+        // للتبسيط، سنفترض أن لدينا GET /appointments/:id
+        const { data } = await api.get(`/appointments/${appointmentId}`);
+        setAppointment(data);
+        setSelectedDate(new Date(data.dateString));
+        setSelectedSlot(data.timeSlot);
+        // جلب بيانات الطبيب وتوافره
+        const doctorRes = await api.get(`/users/doctors/${data.doctor._id}`);
+        setDoctor(doctorRes.data.doctor);
+        setAvailability(doctorRes.data.availability);
       } catch (err) {
-        setError('Failed to load doctor info');
+        setError('Failed to load appointment');
+      } finally {
+        setLoading(false);
       }
     };
-    fetchDoctorAndAvailability();
-  }, [doctorId]);
+    fetchAppointment();
+  }, [appointmentId]);
 
+  // جلب الأوقات المتاحة عند تغيير التاريخ
   useEffect(() => {
-    if (selectedDate && doctorId && availability) {
+    if (selectedDate && doctor && availability) {
       const fetchSlots = async () => {
-        setFetchingSlots(true);
         try {
-          // إرسال التاريخ المحلي بصيغة YYYY-MM-DD
           const localDateStr = format(selectedDate, 'yyyy-MM-dd');
-          const { data } = await api.get(`/appointments/available-slots/${doctorId}?date=${localDateStr}`);
+          const { data } = await api.get(`/appointments/available-slots/${doctor._id}?date=${localDateStr}`);
           setTimeSlots(data);
-          setSelectedSlot('');
+          // إذا كان الوقت الحالي لا يزال متاحاً، اتركه؛ وإلا افرغه
+          if (!data.includes(selectedSlot)) {
+            setSelectedSlot('');
+          }
         } catch (err) {
           setError('Failed to load available slots');
-        } finally {
-          setFetchingSlots(false);
         }
       };
       fetchSlots();
-    } else {
-      setTimeSlots([]);
     }
-  }, [selectedDate, doctorId, availability]);
+  }, [selectedDate, doctor, availability, selectedSlot]);
 
   const shouldDisableDate = (date) => {
     if (!availability || !availability.workingDays) return true;
-    // نحصل على اسم اليوم باللغة الإنجليزية حسب المنطقة المحلية للمتصفح
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-    // نحتاج إلى تحويل workingDays (أرقام) إلى أسماء للمقارنة
     const dayMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const workingDayNames = availability.workingDays.map(num => dayMap[num]);
     return !workingDayNames.includes(dayName);
@@ -97,33 +91,30 @@ export default function BookAppointment() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedDate || !selectedSlot) {
-      setError('Please select date and time slot');
+      setError('Please select a new date and time slot');
       return;
     }
-    setLoading(true);
+    setSaving(true);
     setError('');
     setSuccess('');
     try {
       const localDateStr = format(selectedDate, 'yyyy-MM-dd');
-      await api.post('/appointments', {
-        doctorId,
+      await api.put(`/appointments/${appointmentId}/reschedule`, {
         date: localDateStr,
         timeSlot: selectedSlot,
-        reason,
-        type,
-        notes,
       });
-      setSuccess('Appointment booked successfully!');
+      setSuccess('Appointment rescheduled successfully!');
       setTimeout(() => navigate('/my-appointments'), 2000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Booking failed');
+      setError(err.response?.data?.message || 'Reschedule failed');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  if (!doctor && !error) return <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>;
-  if (error && !doctor) return <Alert severity="error">{error}</Alert>;
+  if (loading) return <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>;
+  if (error && !appointment) return <Alert severity="error">{error}</Alert>;
+  if (!appointment) return <Alert severity="warning">Appointment not found</Alert>;
 
   const dayMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const workingDayNames = availability?.workingDays?.map(num => dayMap[num]) || [];
@@ -133,9 +124,9 @@ export default function BookAppointment() {
       <Box sx={{ minHeight: '100vh', py: 4, background: 'linear-gradient(180deg, #f6fbff 0%, #edf6fb 50%, #f9fcff 100%)' }}>
         <Container maxWidth="md">
           <Paper elevation={0} sx={{ p: { xs: 3, md: 5 }, borderRadius: 4, border: '1px solid #dbe8f0', boxShadow: '0 24px 60px rgba(12, 61, 81, 0.08)' }}>
-            <Typography variant="h4" fontWeight={700} gutterBottom>Book Appointment</Typography>
+            <Typography variant="h4" fontWeight={700} gutterBottom>Reschedule Appointment</Typography>
             <Typography variant="body1" gutterBottom>
-              with <strong>{doctor?.fullName}</strong> ({doctor?.doctorDetails?.specialization || 'General'})
+              with <strong>{doctor?.fullName}</strong>
             </Typography>
             {availability && (
               <Typography variant="caption" display="block" sx={{ mb: 2 }}>
@@ -150,7 +141,7 @@ export default function BookAppointment() {
               <Grid container spacing={3}>
                 <Grid item xs={12}>
                   <DatePicker
-                    label="Select Date"
+                    label="Select New Date"
                     value={selectedDate}
                     onChange={(newDate) => setSelectedDate(newDate)}
                     shouldDisableDate={shouldDisableDate}
@@ -161,59 +152,26 @@ export default function BookAppointment() {
 
                 <Grid item xs={12}>
                   <FormControl fullWidth required>
-                    <InputLabel>Time Slot</InputLabel>
+                    <InputLabel>New Time Slot</InputLabel>
                     <Select
                       value={selectedSlot}
                       onChange={(e) => setSelectedSlot(e.target.value)}
-                      label="Time Slot"
-                      disabled={!selectedDate || fetchingSlots || timeSlots.length === 0}
+                      label="New Time Slot"
+                      disabled={!selectedDate || timeSlots.length === 0}
                     >
                       {timeSlots.map((slot) => (
                         <MenuItem key={slot} value={slot}>{slot}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
-                  {fetchingSlots && <Typography variant="caption">Loading available slots...</Typography>}
-                  {!fetchingSlots && selectedDate && timeSlots.length === 0 && (
+                  {selectedDate && timeSlots.length === 0 && (
                     <Typography variant="caption" color="error">No available slots for this date.</Typography>
                   )}
                 </Grid>
 
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Reason</InputLabel>
-                    <Select value={reason} onChange={(e) => setReason(e.target.value)} label="Reason">
-                      <MenuItem value="routine">Routine check-up</MenuItem>
-                      <MenuItem value="emergency">Emergency consultation</MenuItem>
-                      <MenuItem value="follow-up">Follow-up visit</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Appointment Type</InputLabel>
-                    <Select value={type} onChange={(e) => setType(e.target.value)} label="Appointment Type">
-                      <MenuItem value="clinic">In Clinic</MenuItem>
-                      <MenuItem value="virtual">Virtual (Video Call)</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-
                 <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Additional Notes (optional)"
-                    multiline
-                    rows={3}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Button type="submit" variant="contained" size="large" disabled={loading} fullWidth sx={{ borderRadius: 2.5, py: 1.5 }}>
-                    {loading ? <CircularProgress size={24} /> : 'Confirm Booking'}
+                  <Button type="submit" variant="contained" size="large" disabled={saving} fullWidth sx={{ borderRadius: 2.5, py: 1.5 }}>
+                    {saving ? <CircularProgress size={24} /> : 'Confirm Reschedule'}
                   </Button>
                 </Grid>
               </Grid>
