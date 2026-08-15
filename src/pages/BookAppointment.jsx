@@ -39,7 +39,6 @@ export default function BookAppointment() {
   const [timeSlots, setTimeSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [reason, setReason] = useState('routine');
-  const [type, setType] = useState('clinic');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -67,7 +66,6 @@ export default function BookAppointment() {
       const fetchSlots = async () => {
         setFetchingSlots(true);
         try {
-          // إرسال التاريخ المحلي بصيغة YYYY-MM-DD
           const localDateStr = format(selectedDate, 'yyyy-MM-dd');
           const { data } = await api.get(`/appointments/available-slots/${doctorId}?date=${localDateStr}`);
           setTimeSlots(data);
@@ -86,9 +84,7 @@ export default function BookAppointment() {
 
   const shouldDisableDate = (date) => {
     if (!availability || !availability.workingDays) return true;
-    // نحصل على اسم اليوم باللغة الإنجليزية حسب المنطقة المحلية للمتصفح
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-    // نحتاج إلى تحويل workingDays (أرقام) إلى أسماء للمقارنة
     const dayMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const workingDayNames = availability.workingDays.map(num => dayMap[num]);
     return !workingDayNames.includes(dayName);
@@ -110,7 +106,7 @@ export default function BookAppointment() {
         date: localDateStr,
         timeSlot: selectedSlot,
         reason,
-        type,
+        type: 'clinic',
         notes,
       });
       setSuccess('Appointment booked successfully!');
@@ -133,9 +129,11 @@ export default function BookAppointment() {
       <Box sx={{ minHeight: '100vh', py: 4, background: 'linear-gradient(180deg, #f6fbff 0%, #edf6fb 50%, #f9fcff 100%)' }}>
         <Container maxWidth="md">
           <Paper elevation={0} sx={{ p: { xs: 3, md: 5 }, borderRadius: 4, border: '1px solid #dbe8f0', boxShadow: '0 24px 60px rgba(12, 61, 81, 0.08)' }}>
-            <Typography variant="h4" fontWeight={700} gutterBottom>Book Appointment</Typography>
+            <Typography variant="h4" fontWeight={700} gutterBottom>
+              Book Appointment
+            </Typography>
             <Typography variant="body1" gutterBottom>
-              with <strong>{doctor?.fullName}</strong> ({doctor?.doctorDetails?.specialization || 'General'})
+              with <strong>{doctor?.fullName}</strong>
             </Typography>
             {availability && (
               <Typography variant="caption" display="block" sx={{ mb: 2 }}>
@@ -186,16 +184,6 @@ export default function BookAppointment() {
                       <MenuItem value="routine">Routine check-up</MenuItem>
                       <MenuItem value="emergency">Emergency consultation</MenuItem>
                       <MenuItem value="follow-up">Follow-up visit</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Appointment Type</InputLabel>
-                    <Select value={type} onChange={(e) => setType(e.target.value)} label="Appointment Type">
-                      <MenuItem value="clinic">In Clinic</MenuItem>
-                      <MenuItem value="virtual">Virtual (Video Call)</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>

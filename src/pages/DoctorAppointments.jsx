@@ -69,18 +69,36 @@ export default function DoctorAppointments() {
     }
   };
 
-  // تصفية المواعيد حسب التبويب (قادمة / سابقة)
+  // تصفية المواعيد حسب التبويب
   useEffect(() => {
-    const now = new Date();
-    let filteredList = [...appointments];
-    if (tabValue === 0) {
-      filteredList = filteredList.filter(app => new Date(app.date) >= now);
-    } else {
-      filteredList = filteredList.filter(app => new Date(app.date) < now);
-    }
-    filteredList.sort((a, b) => tabValue === 0 ? new Date(a.date) - new Date(b.date) : new Date(b.date) - new Date(a.date));
-    setFiltered(filteredList);
-  }, [appointments, tabValue]);
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  let filteredList = [...appointments];
+  if (tabValue === 0) {
+    // قادمة: التاريخ >= اليوم
+    filteredList = filteredList.filter(app => {
+      const appDate = new Date(app.date);
+      appDate.setHours(0, 0, 0, 0);
+      return appDate >= today;
+    });
+  } else {
+    // سابقة: التاريخ < اليوم
+    filteredList = filteredList.filter(app => {
+      const appDate = new Date(app.date);
+      appDate.setHours(0, 0, 0, 0);
+      return appDate < today;
+    });
+  }
+  // ترتيب تصاعدي للقادمة، تنازلي للسابقة
+  filteredList.sort((a, b) => {
+    const dateA = new Date(a.date);
+    const dateB = new Date(b.date);
+    return tabValue === 0 ? dateA - dateB : dateB - dateA;
+  });
+  setFiltered(filteredList);
+}, [appointments, tabValue]);
 
   const updateAppointmentStatus = async (id, newStatus) => {
     setActionLoading(true);
@@ -105,20 +123,18 @@ export default function DoctorAppointments() {
     setStatusDialog({ open: true, id, newStatus: 'confirmed' });
   };
 
-  // ❌ تم تعديل هذه الدالة: لم تعد تستخدم handleComplete مباشرة، بل تفتح حوار الوصفة
-  // ✅ الدالة الجديدة handleOpenCompleteDialog
+  // ✅ دالة لفتح حوار الوصفة (بدلاً من handleComplete المباشر)
   const handleOpenCompleteDialog = (appointment) => {
     setMedications([{ name: '', dosage: '', frequency: '', duration: '', notes: '' }]);
     setInstructions('');
     setCompleteDialog({ open: true, appointment });
   };
 
-  // ✅ إضافة دواء جديد
+  // ✅ دوال الأدوية
   const addMedication = () => {
     setMedications([...medications, { name: '', dosage: '', frequency: '', duration: '', notes: '' }]);
   };
 
-  // ✅ حذف دواء
   const removeMedication = (index) => {
     if (medications.length === 1) return;
     const updated = [...medications];
@@ -126,14 +142,12 @@ export default function DoctorAppointments() {
     setMedications(updated);
   };
 
-  // ✅ تحديث حقل دواء
   const updateMedication = (index, field, value) => {
     const updated = [...medications];
     updated[index][field] = value;
     setMedications(updated);
   };
 
-  // ✅ إرسال الإكمال مع الوصفة
   const handleCompleteSubmit = async () => {
     const isValid = medications.every(med => med.name && med.dosage && med.frequency && med.duration);
     if (!isValid) {
@@ -147,7 +161,7 @@ export default function DoctorAppointments() {
         instructions,
       });
       setCompleteDialog({ open: false, appointment: null });
-      fetchAppointments(); // تحديث القائمة
+      fetchAppointments();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to complete appointment');
     } finally {
@@ -254,7 +268,6 @@ export default function DoctorAppointments() {
                             )}
                             {app.status === 'confirmed' && (
                               <>
-                                {/* ✅ تعديل هنا: استخدام handleOpenCompleteDialog بدلاً من handleComplete */}
                                 <Tooltip title="Mark Completed">
                                   <IconButton color="primary" onClick={() => handleOpenCompleteDialog(app)}>
                                     <MedicalServices />
@@ -300,13 +313,14 @@ export default function DoctorAppointments() {
         </DialogActions>
       </Dialog>
 
-      {/* حوار عرض التفاصيل الكاملة */}
+      {/* ✅ حوار عرض التفاصيل الكاملة (مع إضافة Patient ID) */}
       <Dialog open={viewDialog.open} onClose={() => setViewDialog({ open: false, appointment: null })} maxWidth="sm" fullWidth>
         <DialogTitle>Appointment Details</DialogTitle>
         <DialogContent>
           {viewDialog.appointment && (
             <Box sx={{ pt: 2 }}>
               <Typography variant="subtitle1"><strong>Patient:</strong> {viewDialog.appointment.patient?.fullName}</Typography>
+              <Typography variant="body2"><strong>Patient ID:</strong> {viewDialog.appointment.patient?._id}</Typography> {/* ✅ السطر المضاف */}
               <Typography variant="body2"><strong>Email:</strong> {viewDialog.appointment.patient?.email}</Typography>
               <Typography variant="body2"><strong>Phone:</strong> {viewDialog.appointment.patient?.phone || 'N/A'}</Typography>
               <Typography variant="body2"><strong>Date:</strong> {new Date(viewDialog.appointment.date).toLocaleDateString()}</Typography>
@@ -325,7 +339,7 @@ export default function DoctorAppointments() {
         </DialogActions>
       </Dialog>
 
-      {/* ✅ حوار إكمال الموعد مع وصفة طبية (جديد) */}
+      {/* ✅ حوار إكمال الموعد مع وصفة طبية */}
       <Dialog open={completeDialog.open} onClose={() => setCompleteDialog({ open: false, appointment: null })} maxWidth="md" fullWidth>
         <DialogTitle>Complete Appointment with Prescription</DialogTitle>
         <DialogContent>

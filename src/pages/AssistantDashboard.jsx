@@ -57,7 +57,7 @@ export default function AssistantDashboard() {
   // State لإعادة جدولة المواعيد الملغاة
   const [openRescheduleDialog, setOpenRescheduleDialog] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
-  const [availability, setAvailability] = useState(null); // توافر الطبيب
+  const [availability, setAvailability] = useState(null);
   const [newDate, setNewDate] = useState(null);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState('');
@@ -90,7 +90,6 @@ export default function AssistantDashboard() {
     }
   };
 
-  // جلب توافر الطبيب
   const fetchDoctorAvailability = async (doctorId) => {
     try {
       const { data } = await api.get(`/availability/doctor/${doctorId}`);
@@ -146,10 +145,9 @@ export default function AssistantDashboard() {
     setOpenRescheduleDialog(true);
   };
 
-  // تعطيل الأيام التي لا يعمل فيها الطبيب
   const shouldDisableDate = (date) => {
     if (!availability) return true;
-    const dayNumber = date.getDay(); // 0=Sunday, 1=Monday, ...
+    const dayNumber = date.getDay();
     return !availability.workingDays.includes(dayNumber);
   };
 
@@ -187,8 +185,8 @@ export default function AssistantDashboard() {
       });
       setSuccess('Appointment rescheduled successfully');
       setOpenRescheduleDialog(false);
-      await fetchCancelledAppointments(); // تحديث القائمة
-      await fetchData(); // تحديث قائمة المرضى (اختياري)
+      await fetchCancelledAppointments();
+      await fetchData();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Reschedule failed');
@@ -200,7 +198,6 @@ export default function AssistantDashboard() {
   if (loading) return <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>;
   if (error) return <Alert severity="error">{error}</Alert>;
 
-  // تحويل أيام العمل إلى أسماء للعرض
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const workingDayNames = availability?.workingDays?.map(d => dayNames[d]) || [];
 
@@ -221,7 +218,6 @@ export default function AssistantDashboard() {
               <Tab label="Emergency Cancellations" icon={<EventBusy />} iconPosition="start" />
             </Tabs>
 
-            {/* تبويب المرضى */}
             {tabValue === 0 && (
               <>
                 <Typography variant="h5" gutterBottom>Patients of Dr. {doctor?.fullName}</Typography>
@@ -256,7 +252,6 @@ export default function AssistantDashboard() {
               </>
             )}
 
-            {/* تبويب المواعيد الملغاة */}
             {tabValue === 1 && (
               <>
                 <Typography variant="h5" gutterBottom>Emergency Cancellations</Typography>
@@ -321,7 +316,7 @@ export default function AssistantDashboard() {
         </DialogActions>
       </Dialog>
 
-      {/* حوار إعادة جدولة الموعد الملغي */}
+      {/* ✅ حوار إعادة جدولة الموعد الملغي - DatePicker الأصلي */}
       <Dialog open={openRescheduleDialog} onClose={() => setOpenRescheduleDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Reschedule Appointment</DialogTitle>
         <DialogContent>

@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  Divider,
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -37,7 +38,8 @@ export default function MyAppointments() {
   const fetchAppointments = async () => {
     try {
       const { data } = await api.get('/appointments/my-appointments');
-      setAppointments(data);
+      const sorted = data.sort((a, b) => new Date(a.date) - new Date(b.date));
+      setAppointments(sorted);
     } catch (err) {
       setError('Failed to load appointments');
     } finally {
@@ -51,7 +53,6 @@ export default function MyAppointments() {
     setActionLoading(true);
     try {
       await api.put(`/appointments/${id}/cancel`);
-      // تحديث القائمة
       setAppointments(prev =>
         prev.map(app =>
           app._id === id ? { ...app, status: 'cancelled' } : app
@@ -67,31 +68,21 @@ export default function MyAppointments() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed':
-        return 'success';
-      case 'pending':
-        return 'warning';
-      case 'cancelled':
-        return 'error';
-      case 'completed':
-        return 'info';
-      default:
-        return 'default';
+      case 'confirmed': return 'success';
+      case 'pending': return 'warning';
+      case 'cancelled': return 'error';
+      case 'completed': return 'info';
+      default: return 'default';
     }
   };
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'confirmed':
-        return 'Confirmed';
-      case 'pending':
-        return 'Pending';
-      case 'cancelled':
-        return 'Cancelled';
-      case 'completed':
-        return 'Completed';
-      default:
-        return status;
+      case 'confirmed': return 'Confirmed';
+      case 'pending': return 'Pending';
+      case 'cancelled': return 'Cancelled';
+      case 'completed': return 'Completed';
+      default: return status;
     }
   };
 
@@ -117,65 +108,114 @@ export default function MyAppointments() {
             </Typography>
           ) : (
             <Grid container spacing={3}>
-              {appointments.map((app) => (
-                <Grid item xs={12} key={app._id}>
-                  <Card sx={{ borderRadius: 3 }}>
-                    <CardContent>
-                      <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap">
-                        <Box>
-                          <Typography variant="h6" gutterBottom>
-                            Dr. {app.doctor?.fullName}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {app.doctor?.doctorDetails?.specialization || 'General'} | {app.doctor?.doctorDetails?.qualifications}
-                          </Typography>
-                          <Typography variant="body2" sx={{ mt: 1 }}>
-                            📅 {new Date(app.date).toLocaleDateString()} | ⏰ {app.timeSlot}
-                          </Typography>
-                          <Typography variant="body2">
-                            Type: {app.type === 'clinic' ? 'In Clinic' : 'Virtual'}
-                          </Typography>
-                          {app.reason && (
-                            <Typography variant="body2">
-                              Reason: {app.reason}
+              {appointments.map((app) => {
+                const isPending = app.status === 'pending';
+                const isConfirmed = app.status === 'confirmed';
+                const isRescheduledByAssistant = app.notes && app.notes.includes('Rescheduled to') && app.notes.includes('by assistant');
+
+                return (
+                  <Grid item xs={12} key={app._id}>
+                    <Card
+                      sx={{
+                        borderRadius: 3,
+                        border: '1px solid #dbe8f0',
+                        transition: '0.2s',
+                        '&:hover': { boxShadow: 3, borderColor: '#1976d2' },
+                      }}
+                    >
+                      <CardContent>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap">
+                          {/* الجهة اليسرى: التفاصيل */}
+                          <Box sx={{ flex: 1, minWidth: 200 }}>
+                            <Typography variant="h6" gutterBottom>
+                              Dr. {app.doctor?.fullName}
                             </Typography>
-                          )}
-                          {app.notes && (
-                            <Typography variant="body2" color="text.secondary">
-                              Notes: {app.notes}
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                              {app.doctor?.doctorDetails?.specialization || 'General'}
                             </Typography>
-                          )}
-                        </Box>
-                        <Box textAlign="right">
-                          <Chip label={getStatusText(app.status)} color={getStatusColor(app.status)} sx={{ mb: 1 }} />
-                          {(app.status === 'pending' || app.status === 'confirmed') && (
-                            <>
-                              <Button
-                                variant="outlined"
-                                color="primary"
-                                size="small"
-                                onClick={() => navigate(`/reschedule/${app._id}`)}
-                                sx={{ mt: 1, display: 'block', mr: 1 }}
-                              >
-                                Reschedule
-                              </Button>
+                            <Divider sx={{ mb: 1.5 }} />
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                              📅 {new Date(app.date).toLocaleDateString()} | ⏰ {app.timeSlot}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                              Type: {app.type === 'clinic' ? 'In Clinic' : 'Virtual'}
+                            </Typography>
+                            {app.reason && (
+                              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                Reason: {app.reason}
+                              </Typography>
+                            )}
+                            {app.notes && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                Notes: {app.notes}
+                              </Typography>
+                            )}
+                            {isRescheduledByAssistant && (
+                              <Typography variant="caption" color="info.main" sx={{ display: 'block', mt: 1 }}>
+                                ℹ️ This appointment was rescheduled by an assistant. You can still cancel it if needed.
+                              </Typography>
+                            )}
+                          </Box>
+
+                          {/* الجهة اليمنى: الحالة + الأزرار */}
+                          <Box
+                            sx={{
+                              mt: { xs: 2, sm: 0 },
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'flex-start',
+                              gap: 1,
+                              minWidth: 120,
+                            }}
+                          >
+                            <Chip
+                              label={getStatusText(app.status)}
+                              color={getStatusColor(app.status)}
+                              sx={{ minWidth: 80 }}
+                            />
+
+                            {/* الأزرار حسب الحالة */}
+                            {isPending && (
+                              <>
+                                <Button
+                                  variant="outlined"
+                                  color="primary"
+                                  size="small"
+                                  onClick={() => navigate(`/reschedule/${app._id}`)}
+                                  sx={{ minWidth: 100 }}
+                                >
+                                  Reschedule
+                                </Button>
+                                <Button
+                                  variant="outlined"
+                                  color="error"
+                                  size="small"
+                                  onClick={() => setCancelDialog({ open: true, id: app._id })}
+                                  sx={{ minWidth: 100 }}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            )}
+
+                            {isConfirmed && (
                               <Button
                                 variant="outlined"
                                 color="error"
                                 size="small"
                                 onClick={() => setCancelDialog({ open: true, id: app._id })}
-                                sx={{ mt: 1, display: 'block' }}
+                                sx={{ minWidth: 100 }}
                               >
                                 Cancel
                               </Button>
-                            </>
-                          )}
+                            )}
+                          </Box>
                         </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
             </Grid>
           )}
         </Paper>

@@ -1,3 +1,5 @@
+// MyPrescriptions.jsx (النسخة المعدلة)
+
 import { useState, useEffect } from 'react';
 import {
   Container,
@@ -10,12 +12,17 @@ import {
   CircularProgress,
   Alert,
   Chip,
-  Grid,
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
-import { ExpandMore, Medication, Science, Description } from '@mui/icons-material';
+import { ExpandMore, Medication, Description, ThumbUp } from '@mui/icons-material';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -24,6 +31,11 @@ export default function MyPrescriptions() {
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [recommendations, setRecommendations] = useState({}); // { doctorId: boolean }
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDoctorId, setSelectedDoctorId] = useState(null);
+  const [selectedPrescriptionId, setSelectedPrescriptionId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchPrescriptions();
@@ -33,10 +45,46 @@ export default function MyPrescriptions() {
     try {
       const { data } = await api.get('/prescriptions/me');
       setPrescriptions(data);
+      // بعد جلب الوصفات، نتحقق من حالة التوصية لكل طبيب
+      const doctorIds = [...new Set(data.map(p => p.doctor?._id).filter(Boolean))];
+      const statuses = {};
+      for (const id of doctorIds) {
+        try {
+          const res = await api.get(`/recommendations/check/${id}`);
+          statuses[id] = res.data.recommended;
+        } catch {
+          statuses[id] = false;
+        }
+      }
+      setRecommendations(statuses);
     } catch (err) {
       setError('Failed to load prescriptions');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRecommendClick = (doctorId, prescriptionId) => {
+    setSelectedDoctorId(doctorId);
+    setSelectedPrescriptionId(prescriptionId);
+    setDialogOpen(true);
+  };
+
+  const handleConfirmRecommend = async () => {
+    setSubmitting(true);
+    try {
+      await api.post('/recommendations', {
+        doctorId: selectedDoctorId,
+        prescriptionId: selectedPrescriptionId,
+      });
+      // تحديث الحالة محلياً
+      setRecommendations(prev => ({ ...prev, [selectedDoctorId]: true }));
+      setDialogOpen(false);
+      alert('Thank you! Your recommendation has been recorded.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to recommend');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -54,42 +102,79 @@ export default function MyPrescriptions() {
           {prescriptions.length === 0 ? (
             <Alert severity="info">No prescriptions found.</Alert>
           ) : (
-            prescriptions.map((pres) => (
-              <Accordion key={pres._id} sx={{ mb: 2, borderRadius: 2, '&:before': { display: 'none' } }}>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Box display="flex" justifyContent="space-between" width="100%">
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight={600}>Dr. {pres.doctor?.fullName}</Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(pres.date).toLocaleDateString()} - {pres.doctor?.specialization}
-                      </Typography>
+            prescriptions.map((pres) => {
+              const doctorId = pres.doctor?._id;
+              const isRecommended = doctorId ? recommendations[doctorId] : false;
+
+              return (
+                <Accordion key={pres._id} sx={{ mb: 2, borderRadius: 2, '&:before': { display: 'none' } }}>
+                  <AccordionSummary expandIcon={<ExpandMore />}>
+                    <Box display="flex" justifyContent="space-between" width="100%">
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight={600}>Dr. {pres.doctor?.fullName}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(pres.date).toLocaleDateString()} - {pres.doctor?.specialization}
+                        </Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip label={pres.status} size="small" color={pres.status === 'active' ? 'success' : 'default'} />
+                        {doctorId && (
+                          isRecommended ? (
+                            <Chip label="Recommended" size="small" color="primary" icon={<ThumbUp />} />
+                          ) : (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<ThumbUp />}
+                              onClick={() => handleRecommendClick(doctorId, pres._id)}
+                            >
+                              Recommend
+                            </Button>
+                          )
+                        )}
+                      </Box>
                     </Box>
-                    <Chip label={pres.status} size="small" color={pres.status === 'active' ? 'success' : 'default'} />
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Typography variant="subtitle2" gutterBottom><Medication fontSize="small" /> Medications</Typography>
-                  {pres.medications.map((med, index) => (
-                    <Card key={index} variant="outlined" sx={{ mb: 1, bgcolor: '#f9fafb' }}>
-                      <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                        <Typography variant="body2"><strong>{med.name}</strong> - {med.dosage}</Typography>
-                        <Typography variant="caption" display="block">Frequency: {med.frequency} | Duration: {med.duration}</Typography>
-                        {med.notes && <Typography variant="caption" color="text.secondary">Notes: {med.notes}</Typography>}
-                      </CardContent>
-                    </Card>
-                  ))}
-                  {pres.instructions && (
-                    <>
-                      <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}><Description fontSize="small" /> Instructions</Typography>
-                      <Typography variant="body2">{pres.instructions}</Typography>
-                    </>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            ))
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <Typography variant="subtitle2" gutterBottom><Medication fontSize="small" /> Medications</Typography>
+                    {pres.medications.map((med, index) => (
+                      <Card key={index} variant="outlined" sx={{ mb: 1, bgcolor: '#f9fafb' }}>
+                        <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+                          <Typography variant="body2"><strong>{med.name}</strong> - {med.dosage}</Typography>
+                          <Typography variant="caption" display="block">Frequency: {med.frequency} | Duration: {med.duration}</Typography>
+                          {med.notes && <Typography variant="caption" color="text.secondary">Notes: {med.notes}</Typography>}
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {pres.instructions && (
+                      <>
+                        <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}><Description fontSize="small" /> Instructions</Typography>
+                        <Typography variant="body2">{pres.instructions}</Typography>
+                      </>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })
           )}
         </Paper>
       </Container>
+
+      {/* حوار التأكيد */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
+        <DialogTitle>Recommend Doctor</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to recommend this doctor? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleConfirmRecommend} color="primary" variant="contained" disabled={submitting}>
+            {submitting ? <CircularProgress size={24} /> : 'Yes, Recommend'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

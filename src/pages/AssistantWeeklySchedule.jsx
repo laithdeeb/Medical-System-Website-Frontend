@@ -25,7 +25,7 @@ import { format } from 'date-fns';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function DoctorWeeklySchedule() {
+export default function AssistantWeeklySchedule() {
   const { user } = useAuth();
   const [startDate, setStartDate] = useState(new Date());
   const [availability, setAvailability] = useState(null);
@@ -34,43 +34,45 @@ export default function DoctorWeeklySchedule() {
   const [error, setError] = useState('');
   const [cancelDialog, setCancelDialog] = useState({ open: false, date: null, dateStr: '' });
   const [cancelling, setCancelling] = useState(false);
+  const [doctorName, setDoctorName] = useState('');
 
-  // ✅ تخزين الأيام الملغاة في localStorage
-  const STORAGE_KEY = `cancelledDays_${user?._id || 'guest'}`;
-  const [cancelledDays, setCancelledDays] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
-  });
-
+  // ✅ جلب بيانات الطبيب المعين ومواعيده
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cancelledDays));
-  }, [cancelledDays, STORAGE_KEY]);
-
-  useEffect(() => {
-    fetchData();
+    fetchDoctorAndSchedule();
   }, [startDate]);
 
-  const fetchData = async () => {
+  const fetchDoctorAndSchedule = async () => {
     setLoading(true);
     try {
-      const availRes = await api.get('/availability');
+      // جلب معلومات الطبيب المعين
+      const docRes = await api.get('/assistant/assigned-doctor');
+      setDoctorName(docRes.data?.fullName || 'Doctor');
+
+      // جلب إعدادات التوافر
+      const availRes = await api.get('/availability/doctor/' + docRes.data?._id);
       setAvailability(availRes.data);
+
+      // جلب المواعيد للأسبوع
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + 6);
       endDate.setHours(23, 59, 59, 999);
-      const appRes = await api.get('/appointments/doctor-appointments', {
-        params: {
-          start: startDate.toISOString(),
-          end: endDate.toISOString(),
-        },
-      });
+      
+      const appRes = await api.get('/assistant/appointments', {
+  params: {
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
+  },
+});
       setAppointments(appRes.data);
     } catch (err) {
       setError('Failed to load schedule');
     } finally {
       setLoading(false);
     }
+    
   };
+
+  // response
 
   const getWeekDays = () => {
     const days = [];
@@ -93,7 +95,6 @@ export default function DoctorWeeklySchedule() {
     );
   };
 
-  // ✅ دالة للتحقق من وجود مواعيد قابلة للإلغاء (pending أو confirmed)
   const hasCancellableAppointments = (date) => {
     const dayApps = getDayAppointments(date);
     return dayApps.some(app => app.status === 'pending' || app.status === 'confirmed');
@@ -107,11 +108,6 @@ export default function DoctorWeeklySchedule() {
 
   const formatDate = (date) => format(date, 'yyyy-MM-dd');
 
-  const isDayCancelled = (date) => {
-    const dateStr = formatDate(date);
-    return cancelledDays.includes(dateStr);
-  };
-
   const handleCancelDay = (date) => {
     const dateStr = formatDate(date);
     setCancelDialog({ open: true, date, dateStr });
@@ -119,13 +115,12 @@ export default function DoctorWeeklySchedule() {
 
   const confirmCancelDay = async () => {
     if (cancelling) return;
-    const { dateStr, date } = cancelDialog;
+    const { dateStr } = cancelDialog;
     setCancelling(true);
     try {
-      const response = await api.post('/appointments/cancel-day', { date: dateStr });
+      const response = await api.post('/assistant/cancel-day', { date: dateStr });
       if (response.data.count > 0) {
-        setCancelledDays((prev) => [...prev, dateStr]);
-        await fetchData();
+        await fetchDoctorAndSchedule();
       } else {
         setError('No appointments to cancel.');
       }
@@ -139,7 +134,7 @@ export default function DoctorWeeklySchedule() {
 
   if (loading) return <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>;
   if (error) return <Alert severity="error">{error}</Alert>;
-  if (!availability) return <Alert severity="info">Please set your availability first.</Alert>;
+  if (!availability) return <Alert severity="info">Doctor has not set availability yet.</Alert>;
 
   const weekDays = getWeekDays();
   const totalAppointmentsThisWeek = appointments.length;
@@ -150,7 +145,7 @@ export default function DoctorWeeklySchedule() {
         <Container maxWidth="lg">
           <Paper elevation={0} sx={{ p: { xs: 3, md: 4 }, borderRadius: 4, border: '1px solid #dbe8f0', boxShadow: '0 24px 60px rgba(12, 61, 81, 0.08)' }}>
             <Typography variant="h4" fontWeight={700} gutterBottom>
-              Weekly Schedule
+              Weekly Schedule - Dr. {doctorName}
             </Typography>
 
             <Box sx={{ mt: 2, mb: 3 }}>
@@ -183,11 +178,10 @@ export default function DoctorWeeklySchedule() {
               {weekDays.map((day) => {
                 const dayAppointments = getDayAppointments(day);
                 const working = isWorkingDay(day);
-                const cancelled = isDayCancelled(day);
                 const cancellable = hasCancellableAppointments(day);
                 const dayName = day.toLocaleDateString('en-US', { weekday: 'long' });
                 const dateStr = day.toLocaleDateString();
-                const bgColor = working && !cancelled ? '#ffffff' : '#f5f5f5';
+                const bgColor = working ? '#ffffff' : '#f5f5f5';
 
                 return (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={day.toISOString()}>
@@ -203,10 +197,9 @@ export default function DoctorWeeklySchedule() {
                       }}
                     >
                       <CardContent sx={{ flexGrow: 1 }}>
-                        {/* ✅ اليوم + الرقم بجانبه */}
                         <Box display="flex" justifyContent="space-between" alignItems="center">
                           <Typography variant="h6">{dayName}</Typography>
-                          {working && !cancelled && dayAppointments.length > 0 && (
+                          {working && dayAppointments.length > 0 && (
                             <Chip
                               label={dayAppointments.length}
                               size="small"
@@ -214,29 +207,17 @@ export default function DoctorWeeklySchedule() {
                               sx={{ fontWeight: 'bold', minWidth: 30 }}
                             />
                           )}
-                          {cancelled && (
-                            <Chip label="Cancelled" size="small" color="error" />
-                          )}
                         </Box>
 
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           {dateStr}
                         </Typography>
 
-                        {!working && !cancelled && (
+                        {!working && (
                           <Chip label="Not working day" size="small" color="default" />
                         )}
 
-                        {cancelled && (
-                          <Box mt={1}>
-                            <Chip label="Day Cancelled (Emergency)" color="error" size="small" />
-                            <Typography variant="caption" display="block">
-                              All appointments have been cancelled.
-                            </Typography>
-                          </Box>
-                        )}
-
-                        {working && !cancelled && (
+                        {working && (
                           <>
                             <Typography variant="body2">
                               ⏰ {availability.startTime} - {availability.endTime}
@@ -279,8 +260,7 @@ export default function DoctorWeeklySchedule() {
                         )}
                       </CardContent>
 
-                      {/* ✅ زر Cancel Day - يظهر فقط إذا كان هناك مواعيد قابلة للإلغاء */}
-                      {working && !cancelled && cancellable && (
+                      {working && cancellable && (
                         <Box sx={{ p: 2, pt: 0, display: 'flex', justifyContent: 'flex-end' }}>
                           <Button
                             size="small"
@@ -293,12 +273,6 @@ export default function DoctorWeeklySchedule() {
                           >
                             Cancel Day
                           </Button>
-                        </Box>
-                      )}
-
-                      {cancelled && (
-                        <Box sx={{ p: 2, pt: 0, display: 'flex', justifyContent: 'flex-end' }}>
-                          <Chip label="Cancelled" color="error" size="small" />
                         </Box>
                       )}
                     </Card>
@@ -316,7 +290,6 @@ export default function DoctorWeeklySchedule() {
         </Container>
       </Box>
 
-      {/* حوار تأكيد إلغاء اليوم */}
       <Dialog open={cancelDialog.open} onClose={() => setCancelDialog({ open: false, date: null, dateStr: '' })}>
         <DialogTitle>Emergency Day Cancellation</DialogTitle>
         <DialogContent>

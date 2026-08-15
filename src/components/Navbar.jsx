@@ -42,8 +42,11 @@ const Navbar = () => {
             </>
           )}
           {user.role === 'assistant' && (
-            <Button color="inherit" onClick={() => navigate('/assistant-dashboard')}>My Dashboard</Button>
-          )}
+  <>
+    <Button color="inherit" onClick={() => navigate('/assistant-dashboard')}>My Dashboard</Button>
+    <Button color="inherit" onClick={() => navigate('/assistant-weekly-schedule')}>Weekly Schedule</Button>
+  </>
+)}
           {user.role === 'admin' && (
             <>
               <Button color="inherit" onClick={() => navigate('/admin')}>Dashboard</Button>

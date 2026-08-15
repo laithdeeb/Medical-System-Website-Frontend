@@ -28,6 +28,7 @@ import AdminDoctors from './pages/AdminDoctors';
 
 import DoctorHomeScreen from './pages/DoctorHomeScreen';
 import PatientHomeScreen from './pages/PatientHomeScreen';
+import AssistantWeeklySchedule from './pages/AssistantWeeklySchedule';
 
 const AppContent = () => {
   const { loading } = useAuth();
@@ -62,7 +63,7 @@ const AppContent = () => {
 
         
 <Route path="/assistant-dashboard" element={<ProtectedRoute><AssistantDashboard /></ProtectedRoute>} />
-
+<Route path="/assistant-weekly-schedule" element={<ProtectedRoute><AssistantWeeklySchedule /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
         <Route path="/admin/doctors" element={<ProtectedRoute><AdminDoctors /></ProtectedRoute>} />
