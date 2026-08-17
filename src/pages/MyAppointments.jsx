@@ -130,9 +130,6 @@ export default function MyAppointments() {
                             <Typography variant="h6" gutterBottom>
                               Dr. {app.doctor?.fullName}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                              {app.doctor?.doctorDetails?.specialization || 'General'}
-                            </Typography>
                             <Divider sx={{ mb: 1.5 }} />
                             <Typography variant="body2" sx={{ mb: 0.5 }}>
                               📅 {new Date(app.date).toLocaleDateString()} | ⏰ {app.timeSlot}

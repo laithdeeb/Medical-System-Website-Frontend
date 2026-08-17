@@ -24,21 +24,21 @@ import { useNavigate } from 'react-router-dom';
 
 const SYRIAN_GOVERNORATES = [
   'All Governorates',
-  'Damascus',
-  'Rural Damascus',
-  'Aleppo',
-  'Homs',
-  'Hama',
-  'Latakia',
-  'As-Suwayda',
-  'Tartus',
-  'Deir ez-Zor',
-  'Al-Hasakah',
-  'Idlib',
-  'Raqqa',
-  'Daraa',
-  'Quneitra',
-  'Ar-Raqqah',
+  'دمشق',
+  'ريف دمشق',
+  'حلب',
+  'حمص',
+  'حماة',
+  'اللاذقية',
+  'طرطوس',
+  'جبلة',
+  'إدلب',
+  'دير الزور',
+  'الحسكة',
+  'الرقة',
+  'درعا',
+  'السويداء',
+  'القنيطرة',
 ];
 
 const SPECIALTIES = [
@@ -268,10 +268,9 @@ export default function DoctorsList() {
         <Grid container spacing={3}>
           {doctors.map((doc) => (
             <Grid item xs={12} sm={6} md={4} key={doc._id}>
-              {/* ✅ البطاقة بارتفاع ثابت 330px */}
               <Card
                 sx={{
-                  height: 330,
+                  height: 330, // ✅ ارتفاع مناسب
                   display: 'flex',
                   flexDirection: 'column',
                   border: '2px solid #bbdefb',
@@ -295,7 +294,7 @@ export default function DoctorsList() {
                     height: '100%',
                   }}
                 >
-                  {/* القسم 1: الاسم + الجنس (ثابت) */}
+                  {/* ===== الاسم + الجنس ===== */}
                   <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ flexShrink: 0 }}>
                     <Typography variant="h6" noWrap fontWeight={600} sx={{ flex: 1 }}>
                       {doc.fullName}
@@ -306,42 +305,11 @@ export default function DoctorsList() {
                     </Box>
                   </Box>
 
-                  {/* القسم 2: التخصص + التوصيات (ثابت) - مع قص النص الطويل */}
-                  <Box
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="space-between"
-                    sx={{ flexShrink: 0, minHeight: 28, gap: 1 }}
-                  >
-                    <Typography
-                      color="primary"
-                      fontWeight={500}
-                      sx={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        minWidth: 0,
-                      }}
-                    >
-                      {doc.doctorDetails?.specialization || 'General'}
-                    </Typography>
-                    {doc.doctorDetails?.recommendationCount > 0 && (
-                      <Chip
-                        icon={<ThumbUpAlt sx={{ fontSize: 14 }} />}
-                        label={doc.doctorDetails.recommendationCount}
-                        size="small"
-                        color="primary"
-                        sx={{ flexShrink: 0, height: 24 }}
-                      />
-                    )}
-                  </Box>
-
-                  {/* القسم 3: المؤهلات (مرن) - مع قص النص بعد 3 أسطر */}
+                  {/* ===== المؤهلات (نص كبير + مرن) ===== */}
                   <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0, mt: 0.5 }}>
                     <Typography
-                      variant="body2"
-                      color="text.secondary"
+                      variant="body1" // ✅ تكبير الخط
+                      color="text.primary"
                       sx={{
                         display: '-webkit-box',
                         WebkitLineClamp: 3,
@@ -349,15 +317,29 @@ export default function DoctorsList() {
                         overflow: 'hidden',
                         wordBreak: 'break-word',
                         whiteSpace: 'normal',
-                        lineHeight: 1.5,
+                        lineHeight: 2.5,
                         maxHeight: '4.5em',
+                        fontWeight: 700,
                       }}
                     >
-                      {doc.doctorDetails?.qualifications || ''}
+                      {doc.doctorDetails?.qualifications || 'لا توجد مؤهلات'}
                     </Typography>
                   </Box>
 
-                  {/* القسم 4: معلومات ثابتة + أزرار (ثابت في الأسفل) */}
+                  {/* ===== التوصيات (إن وجدت) ===== */}
+                  {doc.doctorDetails?.recommendationCount > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 0.5, flexShrink: 0 }}>
+                      <Chip
+                        icon={<ThumbUpAlt sx={{ fontSize: 14 }} />}
+                        label={doc.doctorDetails.recommendationCount}
+                        size="small"
+                        color="primary"
+                        sx={{ height: 30 }}
+                      />
+                    </Box>
+                  )}
+
+                  {/* ===== المعلومات الثابتة + الأزرار ===== */}
                   <Box sx={{ mt: 'auto', flexShrink: 0 }}>
                     <Typography variant="body2">📅 {doc.doctorDetails?.yearsOfExperience || 0} years exp.</Typography>
                     <Typography variant="body2">📍 {doc.address || 'N/A'}</Typography>

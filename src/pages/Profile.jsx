@@ -39,12 +39,37 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 
-// ===== دالة التحقق من صحة الاسم =====
+// ===== دوال التحقق =====
 const isValidFullName = (name) => {
   if (!name || typeof name !== 'string') return false;
   const nameRegex = /^[\p{L}][\p{L}\s]{1,}$/u;
   return nameRegex.test(name.trim());
 };
+
+const isValidPhone = (phone) => {
+  if (!phone) return true;
+  const phoneRegex = /^[\d+\-()\s]{7,15}$/;
+  return phoneRegex.test(phone.trim());
+};
+
+// ===== قائمة المحافظات السورية بالعربية =====
+const SYRIAN_GOVERNORATES_AR = [
+  'دمشق',
+  'ريف دمشق',
+  'حلب',
+  'حمص',
+  'حماة',
+  'اللاذقية',
+  'طرطوس',
+  'جبلة',
+  'إدلب',
+  'دير الزور',
+  'الحسكة',
+  'الرقة',
+  'درعا',
+  'السويداء',
+  'القنيطرة',
+];
 
 export default function Profile() {
   const { user, logout, updateUser } = useAuth();
@@ -52,6 +77,7 @@ export default function Profile() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [nameError, setNameError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [uploadingCV, setUploadingCV] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -93,9 +119,9 @@ export default function Profile() {
     const { name, value } = e.target;
     if (name === 'yearsOfExperience' && value < 0) return;
     setFormData({ ...formData, [name]: value });
-    if (name === 'fullName') {
-      setNameError('');
-    }
+
+    if (name === 'fullName') setNameError('');
+    if (name === 'phone') setPhoneError('');
   };
 
   const handleDoctorDetailsChange = (e) => {
@@ -164,9 +190,13 @@ export default function Profile() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // ✅ التحقق من صحة الاسم قبل الإرسال
     if (!isValidFullName(formData.fullName)) {
       setNameError('Full name must start with a letter and be at least 2 characters long.');
+      return;
+    }
+
+    if (formData.phone && !isValidPhone(formData.phone)) {
+      setPhoneError('Must contain only numbers.');
       return;
     }
 
@@ -228,6 +258,7 @@ export default function Profile() {
 
           <form onSubmit={handleSubmit}>
             <Grid container spacing={2}>
+              {/* ===== Full Name ===== */}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -247,6 +278,8 @@ export default function Profile() {
                   }}
                 />
               </Grid>
+
+              {/* ===== Email ===== */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -265,6 +298,8 @@ export default function Profile() {
                   }}
                 />
               </Grid>
+
+              {/* ===== Phone ===== */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -272,6 +307,8 @@ export default function Profile() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  error={!!phoneError}
+                  helperText={phoneError || 'e.g., +963 11 1234567'}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -281,23 +318,32 @@ export default function Profile() {
                   }}
                 />
               </Grid>
+
+              {/* ===== Address (Select) ===== */}
               <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  InputProps={{
-                    startAdornment: (
+                <FormControl fullWidth>
+                  <InputLabel id="address-label">Address</InputLabel>
+                  <Select
+                    labelId="address-label"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    label="Address"
+                    startAdornment={
                       <InputAdornment position="start">
                         <LocationOn color="action" />
                       </InputAdornment>
-                    ),
-                  }}
-                />
+                    }
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    {SYRIAN_GOVERNORATES_AR.map((city) => (
+                      <MenuItem key={city} value={city}>{city}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
 
+              {/* ===== Gender ===== */}
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel id="gender-label">Gender</InputLabel>
@@ -321,6 +367,7 @@ export default function Profile() {
               </Grid>
             </Grid>
 
+            {/* ===== Doctor Details ===== */}
             {user?.role === 'doctor' && (
               <>
                 <Typography variant="h6" sx={{ mt: 3, mb: 2 }}>
@@ -375,7 +422,7 @@ export default function Profile() {
                           </InputAdornment>
                         ),
                       }}
-                      helperText="Describe your specialization in detail (e.g., Cardiology, with expertise in treating chest pain, heart diseases, etc.)"
+                      helperText="Describe your specialization in detail"
                     />
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -399,7 +446,7 @@ export default function Profile() {
                   </Grid>
                 </Grid>
 
-                {/* ===== بطاقة إدارة الـ CV ===== */}
+                {/* ===== CV Management ===== */}
                 <Card variant="outlined" sx={{ mt: 3, borderRadius: 3 }}>
                   <CardContent>
                     <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

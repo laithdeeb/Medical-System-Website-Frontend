@@ -25,6 +25,20 @@ import {
 import { useNavigate, Link } from 'react-router-dom';
 import { registerUser } from '../services/api';
 
+// ===== دالة التحقق من صحة الاسم =====
+const isValidFullName = (name) => {
+  if (!name || typeof name !== 'string') return false;
+  const nameRegex = /^[a-zA-Z\u0600-\u06FF][a-zA-Z\u0600-\u06FF\s]{1,}$/;
+  return nameRegex.test(name.trim());
+};
+
+// ===== دالة التحقق من قوة كلمة المرور =====
+const validatePassword = (password) => {
+  // 8 أحرف على الأقل + حرف كبير + حرف صغير + رقم + رمز خاص
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  return passwordRegex.test(password);
+};
+
 export default function Register() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -49,14 +63,28 @@ export default function Register() {
     e.preventDefault();
     const newErrors = {};
 
-    // تحقق مبسط
-    if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
+    // ✅ التحقق من الاسم الكامل
+    if (!formData.fullName.trim()) {
+      newErrors.fullName = 'Full name is required';
+    } else if (!isValidFullName(formData.fullName)) {
+      newErrors.fullName = 'Must start with a letter and be at least 2 characters long (no numbers or special characters)';
+    }
+
+    // ✅ التحقق من البريد الإلكتروني
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Invalid email format';
     }
-    if (!formData.password) newErrors.password = 'Password is required';
+
+    // ✅ التحقق من قوة كلمة المرور
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (!validatePassword(formData.password)) {
+      newErrors.password = 'Password must be at least 8 characters with uppercase, lowercase, number, and special character';
+    }
+
+    // ✅ التحقق من تطابق كلمة المرور
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
@@ -143,7 +171,7 @@ export default function Register() {
                 onChange={handleChange}
                 required
                 error={!!errors.fullName}
-                helperText={errors.fullName}
+                helperText={errors.fullName || 'Must start with a letter (at least 2 characters)'}
               />
 
               <TextField
@@ -158,63 +186,61 @@ export default function Register() {
                 helperText={errors.email}
               />
 
-              {/* حقل كلمة المرور مع أيقونة */}
               <FormControl fullWidth variant="outlined" sx={{ mt: 1 }}>
-  <InputLabel htmlFor="password-input" error={!!errors.password}>
-    Password
-  </InputLabel>
-  <OutlinedInput
-    id="password-input"
-    name="password"
-    type={showPassword ? 'text' : 'password'}
-    value={formData.password}
-    onChange={handleChange}
-    required
-    error={!!errors.password}
-    endAdornment={
-      <InputAdornment position="end">
-        <IconButton
-          aria-label="toggle password visibility"
-          onClick={() => setShowPassword(!showPassword)}
-          edge="end"
-        >
-          {showPassword ? <VisibilityOff /> : <Visibility />}
-        </IconButton>
-      </InputAdornment>
-    }
-    label="Password"
-  />
-  {errors.password && <FormHelperText error>{errors.password}</FormHelperText>}
-</FormControl>
+                <InputLabel htmlFor="password-input" error={!!errors.password}>
+                  Password
+                </InputLabel>
+                <OutlinedInput
+                  id="password-input"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  error={!!errors.password}
+                  endAdornment={
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  }
+                  label="Password"
+                />
+                {errors.password && <FormHelperText error>{errors.password}</FormHelperText>}
+              </FormControl>
 
-              {/* حقل تأكيد كلمة المرور مع أيقونة */}
               <FormControl fullWidth variant="outlined" sx={{ mt: 2 }}>
-  <InputLabel htmlFor="confirm-password-input" error={!!errors.confirmPassword}>
-    Confirm Password
-  </InputLabel>
-  <OutlinedInput
-    id="confirm-password-input"
-    name="confirmPassword"
-    type={showConfirmPassword ? 'text' : 'password'}
-    value={formData.confirmPassword}
-    onChange={handleChange}
-    required
-    error={!!errors.confirmPassword}
-    endAdornment={
-      <InputAdornment position="end">
-        <IconButton
-          aria-label="toggle confirm password visibility"
-          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-          edge="end"
-        >
-          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-        </IconButton>
-      </InputAdornment>
-    }
-    label="Confirm Password"
-  />
-  {errors.confirmPassword && <FormHelperText error>{errors.confirmPassword}</FormHelperText>}
-</FormControl>
+                <InputLabel htmlFor="confirm-password-input" error={!!errors.confirmPassword}>
+                  Confirm Password
+                </InputLabel>
+                <OutlinedInput
+                  id="confirm-password-input"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                  error={!!errors.confirmPassword}
+                  endAdornment={
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle confirm password visibility"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        edge="end"
+                      >
+                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  }
+                  label="Confirm Password"
+                />
+                {errors.confirmPassword && <FormHelperText error>{errors.confirmPassword}</FormHelperText>}
+              </FormControl>
 
               <FormControl fullWidth>
                 <InputLabel id="role-label">User Type</InputLabel>

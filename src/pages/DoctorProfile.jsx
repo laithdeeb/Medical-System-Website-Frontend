@@ -137,13 +137,6 @@ export default function DoctorProfile() {
 
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
                 <Chip
-                  label={doctor.doctorDetails?.specialization || 'General'}
-                  color="primary"
-                  size="medium"
-                  icon={<MedicalServices />}
-                  sx={{ fontSize: '0.95rem' }}
-                />
-                <Chip
                   label={doctor.doctorDetails?.isVerified ? 'Verified' : 'Pending'}
                   color={doctor.doctorDetails?.isVerified ? 'success' : 'warning'}
                   size="small"
@@ -158,7 +151,7 @@ export default function DoctorProfile() {
                 />
               </Stack>
 
-              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: '100%', fontSize: '1rem' }}>
+              <Typography variant="body1" color="text.secondary" sx={{ maxWidth: '100%', fontSize: '1.5rem' }}>
                 {doctor.doctorDetails?.qualifications || 'No qualifications listed'}
               </Typography>
             </Box>

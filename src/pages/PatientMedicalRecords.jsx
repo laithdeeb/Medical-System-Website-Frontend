@@ -68,13 +68,12 @@ export default function PatientMedicalRecords() {
     const element = pdfRef.current;
     if (!element) return;
     try {
-      // إظهار مؤقت للتحميل (اختياري)
       const originalTitle = document.title;
       document.title = 'Generating PDF...';
       const canvas = await html2canvas(element, { scale: 2, logging: false });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 210; // A4 width in mm
+      const imgWidth = 210;
       const pageHeight = 297;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       let heightLeft = imgHeight;
@@ -98,26 +97,57 @@ export default function PatientMedicalRecords() {
   if (loading) return <Box display="flex" justifyContent="center" mt={4}><CircularProgress /></Box>;
   if (error) return <Alert severity="error">{error}</Alert>;
 
-  // بيانات الرسم البياني
-  const chartData = {
-    labels: vitals.map(v => new Date(v.recordedAt).toLocaleDateString()),
-    datasets: [
-      {
-        label: 'Weight (kg)',
-        data: vitals.map(v => v.weight),
-        borderColor: 'rgb(25, 118, 210)',
-        backgroundColor: 'rgba(25, 118, 210, 0.5)',
-        tension: 0.3,
-      },
-      {
-        label: 'BMI',
-        data: vitals.map(v => v.bmi),
-        borderColor: 'rgb(220, 0, 78)',
-        backgroundColor: 'rgba(220, 0, 78, 0.5)',
-        tension: 0.3,
-      },
-    ],
-  };
+  // ===== تحضير بيانات الرسم البياني =====
+  const labels = vitals.map(v => new Date(v.recordedAt).toLocaleDateString());
+
+  // تجميع بيانات المخططات ديناميكياً (فقط المخططات التي تحتوي على بيانات)
+  const datasets = [];
+
+  // 1. Weight (إذا توفرت بيانات)
+  if (vitals.some(v => v.weight !== null && v.weight !== undefined)) {
+    datasets.push({
+      label: 'Weight (kg)',
+      data: vitals.map(v => v.weight),
+      borderColor: 'rgb(25, 118, 210)',
+      backgroundColor: 'rgba(25, 118, 210, 0.5)',
+      tension: 0.3,
+    });
+  }
+
+  // 2. BMI (إذا توفرت بيانات)
+  if (vitals.some(v => v.bmi !== null && v.bmi !== undefined)) {
+    datasets.push({
+      label: 'BMI',
+      data: vitals.map(v => v.bmi),
+      borderColor: 'rgb(220, 0, 78)',
+      backgroundColor: 'rgba(220, 0, 78, 0.5)',
+      tension: 0.3,
+    });
+  }
+
+  // 3. Blood Sugar (إذا توفرت بيانات)
+  if (vitals.some(v => v.bloodSugar !== null && v.bloodSugar !== undefined)) {
+    datasets.push({
+      label: 'Blood Sugar (mg/dL)',
+      data: vitals.map(v => v.bloodSugar),
+      borderColor: 'rgb(255, 159, 64)',
+      backgroundColor: 'rgba(255, 159, 64, 0.5)',
+      tension: 0.3,
+    });
+  }
+
+  // 4. Temperature (إذا توفرت بيانات)
+  if (vitals.some(v => v.temperature !== null && v.temperature !== undefined)) {
+    datasets.push({
+      label: 'Temperature (°C)',
+      data: vitals.map(v => v.temperature),
+      borderColor: 'rgb(75, 192, 192)',
+      backgroundColor: 'rgba(75, 192, 192, 0.5)',
+      tension: 0.3,
+    });
+  }
+
+  const chartData = { labels, datasets };
 
   const chartOptions = {
     responsive: true,
@@ -190,8 +220,8 @@ export default function PatientMedicalRecords() {
             </Grid>
           </Grid>
 
-          {/* الرسم البياني */}
-          {vitals.length > 0 && (
+          {/* الرسم البياني (يظهر فقط إذا كان هناك بيانات) */}
+          {vitals.length > 0 && datasets.length > 0 && (
             <>
               <Typography variant="h5" fontWeight={600} gutterBottom>Health Trends</Typography>
               <Box sx={{ mb: 4 }}>
